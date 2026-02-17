@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ListaTrust - Dashboard</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <!-- Font Awesome via Cloudflare -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .loading-spinner {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        .error-container {
+            text-align: center;
+            padding: 50px;
+            color: #c62828;
+            background: #ffebee;
+            border-radius: 8px;
+            margin: 20px;
+        }
+        .user-greeting {
+            color: white;
+            margin-right: 20px;
+            font-size: 14px;
+        }
+        .logout-btn {
+            background: transparent;
+            color: white;
+            border: 1px solid white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .logout-btn i {
+            font-size: 14px;
+        }
+        .logout-btn:hover {
+            background: white;
+            color: #2f6db2;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        /* Logout Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 {
+            margin-top: 0;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .modal-content p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        .modal-btn {
+            padding: 10px 25px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-btn.confirm {
+            background: #e53935;
+            color: white;
+        }
+        .modal-btn.confirm:hover {
+            background: #c62828;
+        }
+        .modal-btn.cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .modal-btn.cancel:hover {
+            background: #bdbdbd;
+        }
+        
+        /* Search icon */
+        .search-icon {
+            position: absolute;
+            right: 28px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            pointer-events: none;
+            font-size: 14px;
+        }
+        
+        /* Action buttons */
+        .btn-add, .btn-delete {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Logout Confirmation Modal -->
+    <div id="logout-modal" class="modal">
+        <div class="modal-content">
+            <h3><i class="fas fa-sign-out-alt"></i> Logout Confirmation</h3>
+            <p>Are you sure you want to logout?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="hideLogoutModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button class="modal-btn confirm" onclick="confirmLogout()">
+                    <i class="fas fa-check"></i> Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard">
+        <nav>
+            <div class="nav-left">
+                <img src="assets/logo.png" alt="ListaTrust" class="nav-logo">
+                <a href="#" class="nav-link active" data-page="home" onclick="showPage('home'); return false;">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="#" class="nav-link" data-page="lists" onclick="showPage('lists'); return false;">
+                    <i class="fas fa-list"></i> Lists
+                </a>
+            </div>
+            
+            <div class="nav-center search-wrap">
+                <input type="text" id="nav-search" placeholder="Search customers..." oninput="filterCards(this.value)">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+            </div>
+            
+            <div class="nav-right">
+                <span class="user-greeting" id="user-greeting">
+                    <i class="fas fa-user-circle"></i> Loading...
+                </span>
+                <button class="logout-btn" onclick="showLogoutModal()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </nav>
+        
+        <div class="green-bar"></div>
+        
+        <!-- Loading State -->
+        <div id="loading" class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i> Loading dashboard...
+        </div>
+        
+        <!-- Error State -->
+        <div id="error" class="error-container hidden">
+            <i class="fas fa-exclamation-circle"></i> <span></span>
+        </div>
+        
+        <!-- HOME PAGE -->
+        <div id="page-home" class="page-content hidden">
+            <div class="list-container list-container-home" id="home-cards">
+                <!-- Cards will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- LISTS PAGE -->
+        <div id="page-lists" class="page-content hidden">
+            <div class="list-container list-container-lists">
+                <div class="page-header">
+                    <button type="button" class="btn-add" onclick="alert('Add customer feature coming soon!')">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    <button type="button" class="btn-delete" onclick="alert('Delete feature coming soon!')">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                </div>
+                <div class="list-cards" id="lists-cards">
+                    <!-- Cards will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            window.history.pushState(null, null, window.location.href);
+            window.addEventListener('popstate', function() {
+                window.history.pushState(null, null, window.location.href);
+            });
+        })();
+
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        if (!token) {
+            window.location.replace('/');
+        }
+
+        if (user.username) {
+            document.getElementById('user-greeting').innerHTML = `<i class="fas fa-user-circle"></i> Hi, ${user.username}`;
+        }
+
+        function showLogoutModal() {
+            document.getElementById('logout-modal').classList.add('show');
+        }
+
+        function hideLogoutModal() {
+            document.getElementById('logout-modal').classList.remove('show');
+        }
+
+        function confirmLogout() {
+            fetch('/api/logout', {
+                method: 'POST',
+                headers: { 'Authorization': token }
+            }).finally(() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.replace('/');
+            });
+        }
+
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('logout-modal');
+            if (e.target === modal) {
+                hideLogoutModal();
+            }
+        });
+
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('/api/dashboard-data', {
+                    headers: {
+                        'Authorization': token,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('loading').classList.add('hidden');
+                
+                if (data.success) {
+                    renderCards(data.customers);
+                    showPage('home');
+                } else {
+                    showError(data.error || 'Failed to load data');
+                }
+                
+            } catch (error) {
+                console.error('Dashboard error:', error);
+                document.getElementById('loading').classList.add('hidden');
+                showError('Cannot connect to server. Please try again.');
+            }
+        }
+
+        function renderCards(customers) {
+            const homeCards = document.getElementById('home-cards');
+            const listsCards = document.getElementById('lists-cards');
+            
+            if (!customers || customers.length === 0) {
+                const emptyMsg = '<p style="text-align: center; padding: 20px;"><i class="fas fa-users"></i> No customers found.</p>';
+                homeCards.innerHTML = emptyMsg;
+                listsCards.innerHTML = emptyMsg;
+                return;
+            }
+            
+            let html = '';
+            
+            customers.forEach(customer => {
+                let statusClass = '';
+                let statusText = '';
+                
+                if (customer.status === 'pending') {
+                    statusClass = 'pending';
+                    statusText = 'Pending';
+                } else if (customer.status === 'success') {
+                    statusClass = 'success';
+                    statusText = 'Paid';
+                } else {
+                    statusClass = 'danger';
+                    statusText = 'Overdue';
+                }
+                
+                html += `
+                    <div class="debtor-card" data-name="${customer.name.toLowerCase()}">
+                        <div class="avatar">
+                            <i class="fas fa-user-circle" style="font-size: 70px; color: #2f6db2;"></i>
+                        </div>
+                        <div class="info">
+                            <h3>${escapeHtml(customer.name)}</h3>
+                            <p><i class="fas fa-phone"></i> ${escapeHtml(customer.phone)}</p>
+                            <span class="${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="debt">
+                            <p><i class="fas fa-money-bill-wave"></i> Debt</p>
+                            <h3>Php ${customer.debt.toLocaleString()}</h3>
+                        </div>
+                        <div class="actions">
+                            <a href="#" onclick="alert('View details for ${escapeHtml(customer.name)}')"><i class="fas fa-eye"></i> View</a>
+                            <a href="#" onclick="alert('Edit ${escapeHtml(customer.name)}')"><i class="fas fa-edit"></i> Edit</a>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            homeCards.innerHTML = html;
+            listsCards.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function showPage(pageName) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+            document.getElementById('page-' + pageName).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('data-page') === pageName) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        function filterCards(query) {
+            const q = query.toLowerCase().trim();
+            const cards = document.querySelectorAll('.debtor-card');
+            
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name') || '';
+                if (q === '') {
+                    card.style.display = '';
+                } else {
+                    card.style.display = name.includes(q) ? '' : 'none';
+                }
+            });
+        }
+
+        loadDashboardData();
+    </script>
+</body>
+</html>

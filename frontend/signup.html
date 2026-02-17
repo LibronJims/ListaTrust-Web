@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ListaTrust - Sign Up</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <!-- Font Awesome via Cloudflare -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 380px;
+            font-size: 14px;
+        }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        .info-message {
+            background: #e3f2fd;
+            color: #0d47a1;
+            border: 1px solid #90caf9;
+        }
+        .loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .password-requirements {
+            font-size: 12px;
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            padding-left: 5px;
+        }
+        
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 40px;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none;
+            color: #666;
+            font-size: 18px;
+        }
+        .toggle-password:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-layout">
+        <div class="auth-left">
+            <img src="assets/logo.png" alt="ListaTrust" class="auth-logo">
+        </div>
+        <div class="auth-right">
+            <h2 class="auth-title">Create Account</h2>
+            
+            <div id="message" class="message hidden"></div>
+            
+            <form id="signup-form" class="auth-form">
+                <label>USERNAME (unique)</label>
+                <input type="text" id="username" name="username" placeholder="Choose a unique username" required minlength="3" maxlength="50">
+                <small style="display: block; margin-top: -15px; margin-bottom: 15px; color: #666;">Username must be unique</small>
+                
+                <label>EMAIL</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                
+                <label>PASSWORD</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Create a password" required minlength="6">
+                    <span class="toggle-password" onclick="togglePassword('password', this)">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                <div class="password-requirements">
+                    Password must be at least 6 characters with uppercase, lowercase, and number
+                </div>
+                
+                <button type="submit" class="auth-btn" id="signup-btn">Sign Up</button>
+            </form>
+            
+            <p class="auth-switch">Already have an account? <a href="/">Login</a></p>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword(inputId, element) {
+            const input = document.getElementById(inputId);
+            const icon = element.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        const form = document.getElementById('signup-form');
+        const usernameInput = document.getElementById('username');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const signupBtn = document.getElementById('signup-btn');
+        const messageDiv = document.getElementById('message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            messageDiv.classList.add('hidden');
+            
+            const password = passwordInput.value;
+            const hasUpperCase = /[A-Z]/.test(password);
+            const hasLowerCase = /[a-z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            
+            if (password.length < 6 || !hasUpperCase || !hasLowerCase || !hasNumber) {
+                showMessage('Password must be at least 6 characters with uppercase, lowercase, and number', 'error');
+                return;
+            }
+            
+            if (usernameInput.value.trim().length < 3) {
+                showMessage('Username must be at least 3 characters', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        username: usernameInput.value.trim(), 
+                        email: emailInput.value.trim(), 
+                        password: password 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('Account created successfully! Redirecting to login...', 'success');
+                    
+                    usernameInput.value = '';
+                    emailInput.value = '';
+                    passwordInput.value = '';
+                    
+                    setTimeout(() => {
+                        window.location.replace('/');
+                    }, 2000);
+                } else {
+                    showMessage(data.error || 'Registration failed', 'error');
+                    setLoading(false);
+                }
+                
+            } catch (error) {
+                console.error('Signup error:', error);
+                showMessage('Cannot connect to server. Please try again.', 'error');
+                setLoading(false);
+            }
+        });
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type === 'error' ? 'error-message' : type === 'success' ? 'success-message' : 'info-message'}`;
+            messageDiv.classList.remove('hidden');
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                signupBtn.disabled = true;
+                signupBtn.textContent = 'Creating account...';
+                signupBtn.classList.add('loading');
+            } else {
+                signupBtn.disabled = false;
+                signupBtn.textContent = 'Sign Up';
+                signupBtn.classList.remove('loading');
+            }
+        }
+
+        usernameInput.focus();
+    </script>
+</body>
+</html>
