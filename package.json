@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "csurf": "^1.2.2",
+    "express-session": "^1.19.0",
+    "mongo-sanitize": "^1.1.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0"
+  }
+}

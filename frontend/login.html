@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ListaTrust - Login</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <!-- Font Awesome via Cloudflare -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 380px;
+            font-size: 14px;
+        }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        .info-message {
+            background: #e3f2fd;
+            color: #0d47a1;
+            border: 1px solid #90caf9;
+        }
+        .loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        /* Password toggle styles */
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 40px;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none;
+            color: #666;
+            font-size: 18px;
+        }
+        .toggle-password:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Prevent back to dashboard after logout -->
+    <script>
+        (function() {
+            window.history.pushState(null, null, window.location.href);
+            window.addEventListener('popstate', function() {
+                window.history.pushState(null, null, window.location.href);
+            });
+            
+            if (localStorage.getItem('token')) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
+        })();
+    </script>
+    
+
+    <div class="auth-layout">
+        <div class="auth-left">
+            <img src="assets/logo.png" alt="ListaTrust" class="auth-logo">
+        </div>
+        <div class="auth-right">
+            <h2 class="auth-title">Welcome Back</h2>
+            
+            <div id="message" class="message hidden"></div>
+            
+            <form id="login-form" class="auth-form">
+                <input type="hidden" id="csrf-token" name="_csrf" value="">
+                <label>EMAIL</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                
+                <label>PASSWORD</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <span class="toggle-password" onclick="togglePassword('password', this)">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+
+                <a href="/auth/google" class="auth-btn" style="background:#4285f4; text-decoration:none; display:block; text-align:center; margin-top:10px;">
+                <i class="fab fa-google"></i> Login with Google</a>
+                
+                <button type="submit" class="auth-btn" id="login-btn">Login</button>
+            </form>
+            
+            <p class="auth-switch">Don't have an account? <a href="/signup">Create one</a></p>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (token) {
+            window.location.replace('/dashboard');
+        }
+        
+        fetch('/api/csrf-token')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('csrf-token').value = data.csrfToken;
+        });
+        
+
+        function togglePassword(inputId, element) {
+            const input = document.getElementById(inputId);
+            const icon = element.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        const form = document.getElementById('login-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('login-btn');
+        const messageDiv = document.getElementById('message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            messageDiv.classList.add('hidden');
+            
+            if (!emailInput.value.trim() || !passwordInput.value.trim()) {
+                showMessage('Please enter email and password', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            
+            try {
+                const csrfToken = document.getElementById('csrf-token').value;
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify({ 
+                        email: emailInput.value.trim(), 
+                        password: passwordInput.value.trim() 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    showMessage('Login successful! Redirecting...', 'success');
+                    
+                    setTimeout(() => {
+                        window.location.replace('/dashboard');
+                    }, 1000);
+                } else {
+                    showMessage(data.error || 'Login failed', 'error');
+                    setLoading(false);
+                }
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('Cannot connect to server. Please try again.', 'error');
+                setLoading(false);
+            }
+        });
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type === 'error' ? 'error-message' : 'info-message'}`;
+            messageDiv.classList.remove('hidden');
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loginBtn.disabled = true;
+                loginBtn.textContent = 'Logging in...';
+                loginBtn.classList.add('loading');
+            } else {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+                loginBtn.classList.remove('loading');
+            }
+        }
+
+        emailInput.focus();
+    </script>
+</body>
+</html>
